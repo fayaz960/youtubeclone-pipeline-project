@@ -1,53 +1,31 @@
-pipeline {
-  agent any
+version: '3.8'
+services:
+  postgres:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypassword
+      POSTGRES_DB: youtubeclone
+    ports:
+      - "5432:5432"
 
-  stages {
-    stage('Checkout') {
-      steps {
-        echo "Assuming code is already present in the workspace."
-      }
-    }
-    
-    stage('Build Docker Images') {
-      steps {
-        script {
-          echo "Building backend image..."
-          sh 'docker build -t projpip_backend:latest ./youtubeclone-backend'
-          
-          echo "Building frontend image..."
-          sh 'docker build -t projpip_frontend:latest ./youtubeclone-frontend'
-        }
-      }
-    }
-    
-    stage('Run Tests') {
-      steps {
-        script {
-          echo "Running backend tests..."
-          sh 'docker run --rm projpip_backend:latest npm test || echo "No backend tests defined"'
-        }
-      }
-    }
-    
-    stage('Deploy via Docker Compose') {
-      steps {
-        script {
-          echo "Taking down any existing containers..."
-          sh 'docker-compose down || true'
-          
-          echo "Deploying with docker-compose..."
-          sh 'docker-compose up -d --build'
-        }
-      }
-    }
-  }
-  
-  post {
-    success {
-      echo "Build and Deployment Succeeded!"
-    }
-    failure {
-      echo "Build or Deployment Failed!"
-    }
-  }
-}
+  backend:
+    image: 974522/youtubeclone-backend:latest
+    environment:
+      JWT_SECRET: pewdiepie
+      JWT_EXPIRE: 30d
+      DATABASE_URL: postgres://myuser:mypassword@postgres:5432/youtubeclone
+    ports:
+      - "5000:5000"
+    depends_on:
+      - postgres
+
+  frontend:
+    image: 974522/youtubeclone-frontend:latest
+    environment:
+      REACT_APP_BACKEND_URL: http://localhost:5000/api/v1/
+      REACT_APP_CLOUDINARY_ENDPOINT: https://api.cloudinary.com/v1_1/dggcvdpqj
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
